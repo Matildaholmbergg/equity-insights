@@ -2,24 +2,46 @@
 
 import { useState } from 'react';
 
-// Company metadata (since Finnhub quote doesn't provide company names/sectors)
-const companyMetadata: { [key: string]: { name: string; sector: string; location: string } } = {
-  AAPL: { name: "Apple Inc.", sector: "Technology", location: "Cupertino, CA" },
-  TSLA: { name: "Tesla, Inc.", sector: "Automotive", location: "Austin, TX" },
-  MSFT: { name: "Microsoft Corporation", sector: "Technology", location: "Redmond, WA" },
-  GOOGL: { name: "Alphabet Inc.", sector: "Technology", location: "Mountain View, CA" },
-  NVDA: { name: "NVIDIA Corporation", sector: "Technology", location: "Santa Clara, CA" },
-  AMZN: { name: "Amazon.com Inc.", sector: "E-commerce", location: "Seattle, WA" },
-  META: { name: "Meta Platforms Inc.", sector: "Technology", location: "Menlo Park, CA" },
+// Helper function to format market cap from millions to readable format
+const formatMarketCap = (marketCapInMillions: number): string => {
+  if (marketCapInMillions >= 1000000) {
+    return `$${(marketCapInMillions / 1000000).toFixed(2)}T`;
+  } else if (marketCapInMillions >= 1000) {
+    return `$${(marketCapInMillions / 1000).toFixed(1)}B`;
+  } else {
+    return `$${marketCapInMillions.toFixed(0)}M`;
+  }
 };
 
-// Fallback fundamentals (TODO: Replace with real fundamentals API later)
-const fundamentalsData: { [key: string]: any } = {
-  AAPL: { marketCap: "2.35T", peRatio: "25.4x", revenue: "$394.3B", eps: "$6.11", dividendYield: "0.52%", revenueGrowth: "+8.2%" },
-  TSLA: { marketCap: "792.1B", peRatio: "65.7x", revenue: "$96.8B", eps: "$3.62", dividendYield: "0.00%", revenueGrowth: "+18.8%" },
-  MSFT: { marketCap: "3.14T", peRatio: "34.2x", revenue: "$245.1B", eps: "$12.05", dividendYield: "0.68%", revenueGrowth: "+15.7%" },
-  GOOGL: { marketCap: "2.11T", peRatio: "23.8x", revenue: "$307.4B", eps: "$7.07", dividendYield: "0.00%", revenueGrowth: "+13.4%" },
-  NVDA: { marketCap: "3.15T", peRatio: "63.2x", revenue: "$126.0B", eps: "$2.05", dividendYield: "0.03%", revenueGrowth: "+126.1%" },
+// Helper function to format 52-week range
+const format52WeekRange = (low?: number, high?: number): string => {
+  if (!low || !high) return "-";
+  return `$${low.toFixed(2)} - $${high.toFixed(2)}`;
+};
+
+// Helper function to format P/E ratio
+const formatPeRatio = (pe?: number): string => {
+  if (!pe || pe <= 0) return "-";
+  return `${pe.toFixed(1)}x`;
+};
+
+// Helper function to format dividend yield
+const formatDividendYield = (yieldValue?: number): string => {
+  if (!yieldValue || yieldValue <= 0) return "0.00%";
+  return `${yieldValue.toFixed(2)}%`;
+};
+
+// Helper function to format EPS
+const formatEps = (eps?: number): string => {
+  if (!eps) return "-";
+  return `$${eps.toFixed(2)}`;
+};
+
+// Helper function to format revenue growth
+const formatRevenueGrowth = (growth?: number): string => {
+  if (!growth && growth !== 0) return "-";
+  const sign = growth >= 0 ? "+" : "";
+  return `${sign}${growth.toFixed(1)}%`;
 };
 
 // Data structure for our UI
@@ -33,41 +55,39 @@ interface CompanyData {
   changePercent: number;
   marketCap: string;
   peRatio: string;
-  revenue: string;
+  revenueGrowth: string;
   eps: string;
   fiftyTwoWeekLow: number;
   fiftyTwoWeekHigh: number;
   dividendYield: string;
-  revenueGrowth: string;
   logo?: string;
 }
 
 // Transform Finnhub response to our data structure
-const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any): CompanyData | null => {
-  const metadata = companyMetadata[ticker];
-  const fundamentals = fundamentalsData[ticker];
-  
-  if (!metadata || !finnhubResponse || !finnhubResponse.c) {
-    return null;
-  }
+  const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any, financialsData?: any): CompanyData | null => {
+    if (!finnhubResponse || !finnhubResponse.c) {
+      return null;
+    }
 
-  return {
-    name: metadata.name,
+    const metrics = financialsData?.metric || {};
+
+    return {
+    name: profileData?.name || ticker, // Use real name from profile, fallback to ticker
     ticker: ticker,
-    sector: metadata.sector,
-    location: metadata.location,
+    sector: "-", // Not available in free Finnhub plan
+    location: profileData?.country || "-", // Use country from profile
     price: Number(finnhubResponse.c.toFixed(2)),
     change: Number(finnhubResponse.d.toFixed(2)),
     changePercent: Number(finnhubResponse.dp.toFixed(2)),
-    fiftyTwoWeekLow: Number(finnhubResponse.l.toFixed(2)),  // Using day low as approximation
-    fiftyTwoWeekHigh: Number(finnhubResponse.h.toFixed(2)), // Using day high as approximation
-    // Fallback to fundamentals data for now
-    marketCap: fundamentals?.marketCap || "N/A",
-    peRatio: fundamentals?.peRatio || "N/A",
-    revenue: fundamentals?.revenue || "N/A",
-    eps: fundamentals?.eps || "N/A",
-    dividendYield: fundamentals?.dividendYield || "N/A",
-    revenueGrowth: fundamentals?.revenueGrowth || "N/A",
+    // Real 52-week range from financials (preferred) or day range (fallback)
+    fiftyTwoWeekLow: metrics['52WeekLow'] || Number(finnhubResponse.l.toFixed(2)),
+    fiftyTwoWeekHigh: metrics['52WeekHigh'] || Number(finnhubResponse.h.toFixed(2)),
+    // Real data from various Finnhub endpoints
+    marketCap: profileData?.marketCapitalization ? formatMarketCap(profileData.marketCapitalization) : "-",
+    peRatio: formatPeRatio(metrics.peNormalizedAnnual),
+    revenueGrowth: formatRevenueGrowth(metrics.revenueGrowthTTMYoy), // Real revenue growth YoY
+    eps: formatEps(metrics.epsTTM), // Using TTM (Trailing Twelve Months) EPS
+    dividendYield: formatDividendYield(metrics.currentDividendYieldTTM),
     logo: profileData?.logo || undefined,
   };
 };
@@ -127,6 +147,23 @@ export default function Home() {
     }
   };
 
+  const fetchBasicFinancials = async (symbol: string) => {
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_API_KEY_HERE';
+      const url = `https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${apiKey}`;
+      
+      console.log('Fetching basic financials from:', url);
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('Finnhub financials response for', symbol, ':', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching basic financials:', error);
+      return null;
+    }
+  };
+
   const preloadImage = (src: string): Promise<void> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -142,42 +179,58 @@ export default function Home() {
       setLoading(true);
       const ticker = searchTerm.toUpperCase().trim();
       
-      try {
-        // Handle company name aliases
-        let searchTicker = ticker;
-        if (ticker === 'APPLE') searchTicker = 'AAPL';
-        else if (ticker === 'TESLA') searchTicker = 'TSLA';
-        else if (ticker === 'MICROSOFT') searchTicker = 'MSFT';
-        else if (ticker === 'GOOGLE' || ticker === 'ALPHABET') searchTicker = 'GOOGL';
-        else if (ticker === 'NVIDIA') searchTicker = 'NVDA';
-        else if (ticker === 'AMAZON') searchTicker = 'AMZN';
-        else if (ticker === 'META' || ticker === 'FACEBOOK') searchTicker = 'META';
+              try {
+          // Handle common company name aliases
+          let searchTicker = ticker;
+          const aliases: { [key: string]: string } = {
+            'APPLE': 'AAPL',
+            'TESLA': 'TSLA', 
+            'MICROSOFT': 'MSFT',
+            'GOOGLE': 'GOOGL',
+            'ALPHABET': 'GOOGL',
+            'NVIDIA': 'NVDA',
+            'AMAZON': 'AMZN',
+            'META': 'META',
+            'FACEBOOK': 'META'
+          };
+          
+          searchTicker = aliases[ticker] || ticker;
 
-        // Fetch real data from Finnhub
-        const [finnhubData, profileData] = await Promise.all([
-          fetchStockData(searchTicker),
-          fetchCompanyProfile(searchTicker)
-        ]);
-        
-        const transformedData = transformFinnhubData(searchTicker, finnhubData, profileData);
+                  // Fetch real data from Finnhub in parallel
+          const [finnhubData, profileData, financialsData] = await Promise.all([
+            fetchStockData(searchTicker),
+            fetchCompanyProfile(searchTicker),
+            fetchBasicFinancials(searchTicker)
+          ]);
+          
+          // Transform data with all API responses
+          const transformedData = transformFinnhubData(searchTicker, finnhubData, profileData, financialsData);
         
         if (transformedData) {
-          // If there's a logo, preload it before showing the data
+          // Prepare parallel operations
+          const operations = [];
+          
+          // If there's a logo, preload it in parallel
           if (transformedData.logo) {
-            try {
-              console.log('Preloading logo:', transformedData.logo);
-              await preloadImage(transformedData.logo);
-              console.log('Logo preloaded successfully');
-            } catch (error) {
-              console.log('Logo failed to load, removing it:', error);
-              transformedData.logo = undefined; // Remove logo if it fails to load
-            }
+            console.log('Preloading logo in parallel:', transformedData.logo);
+            operations.push(
+              preloadImage(transformedData.logo).catch((error) => {
+                console.log('Logo failed to load, will remove it:', error);
+                transformedData.logo = undefined; // Remove logo if it fails to load
+              })
+            );
           }
           
+          // Wait for all operations (currently just logo preloading, but extensible)
+          if (operations.length > 0) {
+            await Promise.all(operations);
+          }
+          
+          console.log('All operations completed, showing results');
           setCurrentCompany(transformedData);
           setShowResults(true);
         } else {
-          alert(`Sorry, we couldn't fetch data for "${searchTerm}". Please try: AAPL, TSLA, MSFT, GOOGL, NVDA, AMZN, or META`);
+          alert(`Sorry, we couldn't fetch data for "${searchTerm}". Please check the ticker symbol and try again.`);
         }
       } catch (error) {
         console.error('Search error:', error);
@@ -283,8 +336,13 @@ export default function Home() {
                   <div className="text-xl font-light">{currentCompany.peRatio}</div>
                 </div>
                 <div>
-                  <div className="text-gray-400 text-sm font-light mb-1">Revenue (TTM)</div>
-                  <div className="text-xl font-light">{currentCompany.revenue}</div>
+                  <div className="text-gray-400 text-sm font-light mb-1">Revenue Growth (YoY)</div>
+                  <div className={`text-xl font-light ${
+                    currentCompany.revenueGrowth.startsWith('+') ? 'text-green-400' : 
+                    currentCompany.revenueGrowth.startsWith('-') ? 'text-red-400' : ''
+                  }`}>
+                    {currentCompany.revenueGrowth}
+                  </div>
                 </div>
                 <div>
                   <div className="text-gray-400 text-sm font-light mb-1">EPS</div>
@@ -293,18 +351,13 @@ export default function Home() {
                 <div>
                   <div className="text-gray-400 text-sm font-light mb-1">52W Range</div>
                   <div className="text-xl font-light">
-                    ${currentCompany.fiftyTwoWeekLow} - ${currentCompany.fiftyTwoWeekHigh}
+                    {format52WeekRange(currentCompany.fiftyTwoWeekLow, currentCompany.fiftyTwoWeekHigh)}
                   </div>
                 </div>
                 <div>
                   <div className="text-gray-400 text-sm font-light mb-1">Dividend Yield</div>
                   <div className="text-xl font-light">{currentCompany.dividendYield}</div>
                 </div>
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-800">
-                <div className="text-gray-400 text-sm font-light mb-1">Revenue Growth (YoY)</div>
-                <div className="text-xl font-light text-green-400">{currentCompany.revenueGrowth}</div>
               </div>
             </div>
           </div>
@@ -376,7 +429,7 @@ export default function Home() {
 
         {/* Subtle hint */}
         <p className="text-sm text-gray-600 mt-6 font-light">
-          Try: AAPL, TSLA, MSFT, GOOGL, NVDA, AMZN, META
+          Search any public company ticker symbol
         </p>
       </div>
     </div>
