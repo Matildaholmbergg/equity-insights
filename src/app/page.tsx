@@ -2,93 +2,74 @@
 
 import { useState } from 'react';
 
-// Mock data for companies
-const mockData = {
-  AAPL: {
-    name: "Apple Inc.",
-    ticker: "AAPL",
-    sector: "Technology",
-    location: "Cupertino, CA",
-    price: 150.23,
-    change: 2.45,
-    changePercent: 1.65,
-    marketCap: "2.35T",
-    peRatio: "25.4x",
-    revenue: "$394.3B",
-    eps: "$6.11",
-    fiftyTwoWeekLow: 124.17,
-    fiftyTwoWeekHigh: 182.94,
-    dividendYield: "0.52%",
-    revenueGrowth: "+8.2%"
-  },
-  TSLA: {
-    name: "Tesla, Inc.",
-    ticker: "TSLA",
-    sector: "Automotive",
-    location: "Austin, TX",
-    price: 248.85,
-    change: -5.12,
-    changePercent: -2.02,
-    marketCap: "792.1B",
-    peRatio: "65.7x",
-    revenue: "$96.8B",
-    eps: "$3.62",
-    fiftyTwoWeekLow: 152.37,
-    fiftyTwoWeekHigh: 299.29,
-    dividendYield: "0.00%",
-    revenueGrowth: "+18.8%"
-  },
-  MSFT: {
-    name: "Microsoft Corporation",
-    ticker: "MSFT",
-    sector: "Technology",
-    location: "Redmond, WA",
-    price: 422.54,
-    change: 1.89,
-    changePercent: 0.45,
-    marketCap: "3.14T",
-    peRatio: "34.2x",
-    revenue: "$245.1B",
-    eps: "$12.05",
-    fiftyTwoWeekLow: 309.45,
-    fiftyTwoWeekHigh: 468.35,
-    dividendYield: "0.68%",
-    revenueGrowth: "+15.7%"
-  },
-  GOOGL: {
-    name: "Alphabet Inc.",
-    ticker: "GOOGL",
-    sector: "Technology",
-    location: "Mountain View, CA",
-    price: 171.18,
-    change: 0.95,
-    changePercent: 0.56,
-    marketCap: "2.11T",
-    peRatio: "23.8x",
-    revenue: "$307.4B",
-    eps: "$7.07",
-    fiftyTwoWeekLow: 129.40,
-    fiftyTwoWeekHigh: 191.75,
-    dividendYield: "0.00%",
-    revenueGrowth: "+13.4%"
-  },
-  NVDA: {
-    name: "NVIDIA Corporation",
-    ticker: "NVDA",
-    sector: "Technology",
-    location: "Santa Clara, CA",
-    price: 127.84,
-    change: 3.22,
-    changePercent: 2.58,
-    marketCap: "3.15T",
-    peRatio: "63.2x",
-    revenue: "$126.0B",
-    eps: "$2.05",
-    fiftyTwoWeekLow: 39.23,
-    fiftyTwoWeekHigh: 152.89,
-    dividendYield: "0.03%",
-    revenueGrowth: "+126.1%"
+// Company metadata (since Finnhub quote doesn't provide company names/sectors)
+const companyMetadata: { [key: string]: { name: string; sector: string; location: string } } = {
+  AAPL: { name: "Apple Inc.", sector: "Technology", location: "Cupertino, CA" },
+  TSLA: { name: "Tesla, Inc.", sector: "Automotive", location: "Austin, TX" },
+  MSFT: { name: "Microsoft Corporation", sector: "Technology", location: "Redmond, WA" },
+  GOOGL: { name: "Alphabet Inc.", sector: "Technology", location: "Mountain View, CA" },
+  NVDA: { name: "NVIDIA Corporation", sector: "Technology", location: "Santa Clara, CA" },
+  AMZN: { name: "Amazon.com Inc.", sector: "E-commerce", location: "Seattle, WA" },
+  META: { name: "Meta Platforms Inc.", sector: "Technology", location: "Menlo Park, CA" },
+};
+
+// Fallback fundamentals (TODO: Replace with real fundamentals API later)
+const fundamentalsData: { [key: string]: any } = {
+  AAPL: { marketCap: "2.35T", peRatio: "25.4x", revenue: "$394.3B", eps: "$6.11", dividendYield: "0.52%", revenueGrowth: "+8.2%" },
+  TSLA: { marketCap: "792.1B", peRatio: "65.7x", revenue: "$96.8B", eps: "$3.62", dividendYield: "0.00%", revenueGrowth: "+18.8%" },
+  MSFT: { marketCap: "3.14T", peRatio: "34.2x", revenue: "$245.1B", eps: "$12.05", dividendYield: "0.68%", revenueGrowth: "+15.7%" },
+  GOOGL: { marketCap: "2.11T", peRatio: "23.8x", revenue: "$307.4B", eps: "$7.07", dividendYield: "0.00%", revenueGrowth: "+13.4%" },
+  NVDA: { marketCap: "3.15T", peRatio: "63.2x", revenue: "$126.0B", eps: "$2.05", dividendYield: "0.03%", revenueGrowth: "+126.1%" },
+};
+
+// Data structure for our UI
+interface CompanyData {
+  name: string;
+  ticker: string;
+  sector: string;
+  location: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  marketCap: string;
+  peRatio: string;
+  revenue: string;
+  eps: string;
+  fiftyTwoWeekLow: number;
+  fiftyTwoWeekHigh: number;
+  dividendYield: string;
+  revenueGrowth: string;
+  logo?: string;
+}
+
+// Transform Finnhub response to our data structure
+const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any): CompanyData | null => {
+  const metadata = companyMetadata[ticker];
+  const fundamentals = fundamentalsData[ticker];
+  
+  if (!metadata || !finnhubResponse || !finnhubResponse.c) {
+    return null;
   }
+
+  return {
+    name: metadata.name,
+    ticker: ticker,
+    sector: metadata.sector,
+    location: metadata.location,
+    price: Number(finnhubResponse.c.toFixed(2)),
+    change: Number(finnhubResponse.d.toFixed(2)),
+    changePercent: Number(finnhubResponse.dp.toFixed(2)),
+    fiftyTwoWeekLow: Number(finnhubResponse.l.toFixed(2)),  // Using day low as approximation
+    fiftyTwoWeekHigh: Number(finnhubResponse.h.toFixed(2)), // Using day high as approximation
+    // Fallback to fundamentals data for now
+    marketCap: fundamentals?.marketCap || "N/A",
+    peRatio: fundamentals?.peRatio || "N/A",
+    revenue: fundamentals?.revenue || "N/A",
+    eps: fundamentals?.eps || "N/A",
+    dividendYield: fundamentals?.dividendYield || "N/A",
+    revenueGrowth: fundamentals?.revenueGrowth || "N/A",
+    logo: profileData?.logo || undefined,
+  };
 };
 
 // Helper function to get company emoji
@@ -98,7 +79,9 @@ const getCompanyEmoji = (ticker: string) => {
     'TSLA': '🚗',
     'MSFT': '💻',
     'GOOGL': '🔍',
-    'NVDA': '🖥️'
+    'NVDA': '🖥️',
+    'AMZN': '📦',
+    'META': '👥'
   };
   return emojis[ticker] || '🏢';
 };
@@ -106,35 +89,101 @@ const getCompanyEmoji = (ticker: string) => {
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
-  const [currentCompany, setCurrentCompany] = useState<typeof mockData.AAPL | null>(null);
+  const [currentCompany, setCurrentCompany] = useState<CompanyData | null>(null);
+  const [loading, setLoading] = useState(false);
 
-      const handleSearch = (e: React.FormEvent) => {
+      const fetchStockData = async (symbol: string) => {
+    try {
+      // Replace with your actual Finnhub API key
+      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_API_KEY_HERE';
+      const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
+      
+      console.log('Fetching data from:', url);
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('Finnhub response for', symbol, ':', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching stock data:', error);
+      return null;
+    }
+  };
+
+  const fetchCompanyProfile = async (symbol: string) => {
+    try {
+      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_API_KEY_HERE';
+      const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`;
+      
+      console.log('Fetching company profile from:', url);
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      console.log('Finnhub profile response for', symbol, ':', data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching company profile:', error);
+      return null;
+    }
+  };
+
+  const preloadImage = (src: string): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+      img.src = src;
+    });
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
+      setLoading(true);
       const ticker = searchTerm.toUpperCase().trim();
       
-      // Check if we have data for this company
-      if (ticker in mockData) {
-        setCurrentCompany(mockData[ticker as keyof typeof mockData]);
-        setShowResults(true);
-      } else if (ticker === 'APPLE') {
-        setCurrentCompany(mockData.AAPL);
-        setShowResults(true);
-      } else if (ticker === 'TESLA') {
-        setCurrentCompany(mockData.TSLA);
-        setShowResults(true);
-      } else if (ticker === 'MICROSOFT') {
-        setCurrentCompany(mockData.MSFT);
-        setShowResults(true);
-      } else if (ticker === 'GOOGLE' || ticker === 'ALPHABET') {
-        setCurrentCompany(mockData.GOOGL);
-        setShowResults(true);
-      } else if (ticker === 'NVIDIA') {
-        setCurrentCompany(mockData.NVDA);
-        setShowResults(true);
-      } else {
-        // TODO: Handle companies not in our mock data
-        alert(`Sorry, we don't have data for "${searchTerm}" yet. Try: AAPL, TSLA, MSFT, GOOGL, or NVDA`);
+      try {
+        // Handle company name aliases
+        let searchTicker = ticker;
+        if (ticker === 'APPLE') searchTicker = 'AAPL';
+        else if (ticker === 'TESLA') searchTicker = 'TSLA';
+        else if (ticker === 'MICROSOFT') searchTicker = 'MSFT';
+        else if (ticker === 'GOOGLE' || ticker === 'ALPHABET') searchTicker = 'GOOGL';
+        else if (ticker === 'NVIDIA') searchTicker = 'NVDA';
+        else if (ticker === 'AMAZON') searchTicker = 'AMZN';
+        else if (ticker === 'META' || ticker === 'FACEBOOK') searchTicker = 'META';
+
+        // Fetch real data from Finnhub
+        const [finnhubData, profileData] = await Promise.all([
+          fetchStockData(searchTicker),
+          fetchCompanyProfile(searchTicker)
+        ]);
+        
+        const transformedData = transformFinnhubData(searchTicker, finnhubData, profileData);
+        
+        if (transformedData) {
+          // If there's a logo, preload it before showing the data
+          if (transformedData.logo) {
+            try {
+              console.log('Preloading logo:', transformedData.logo);
+              await preloadImage(transformedData.logo);
+              console.log('Logo preloaded successfully');
+            } catch (error) {
+              console.log('Logo failed to load, removing it:', error);
+              transformedData.logo = undefined; // Remove logo if it fails to load
+            }
+          }
+          
+          setCurrentCompany(transformedData);
+          setShowResults(true);
+        } else {
+          alert(`Sorry, we couldn't fetch data for "${searchTerm}". Please try: AAPL, TSLA, MSFT, GOOGL, NVDA, AMZN, or META`);
+        }
+      } catch (error) {
+        console.error('Search error:', error);
+        alert('Error fetching stock data. Please try again.');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -169,11 +218,16 @@ export default function Home() {
                 />
                 <button
                   type="submit"
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white transition-colors duration-200"
+                  disabled={loading}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white transition-colors duration-200 disabled:opacity-50"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+                  {loading ? (
+                    <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  )}
                 </button>
               </div>
             </form>
@@ -185,13 +239,26 @@ export default function Home() {
           {/* Company Header */}
           <div className="mb-8">
             <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-light mb-2">
-                  {getCompanyEmoji(currentCompany.ticker)} {currentCompany.name} ({currentCompany.ticker})
-                </h1>
-                <p className="text-gray-400 font-light">
-                  {currentCompany.sector} • {currentCompany.location}
-                </p>
+              <div className="flex items-start gap-4">
+                {currentCompany.logo && (
+                  <img 
+                    src={currentCompany.logo} 
+                    alt={`${currentCompany.name} logo`}
+                    className="w-16 h-16 rounded-lg bg-white p-2"
+                    onError={(e) => {
+                      // Hide logo if it fails to load
+                      e.currentTarget.style.display = 'none';
+                    }}
+                  />
+                )}
+                <div>
+                  <h1 className="text-3xl font-light mb-2">
+                    {!currentCompany.logo && getCompanyEmoji(currentCompany.ticker)} {currentCompany.name} ({currentCompany.ticker})
+                  </h1>
+                  <p className="text-gray-400 font-light">
+                    {currentCompany.sector} • {currentCompany.location}
+                  </p>
+                </div>
               </div>
               
                               <div className="text-right">
@@ -283,28 +350,33 @@ export default function Home() {
             />
             <button
               type="submit"
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white transition-colors duration-200"
+              disabled={loading}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-white transition-colors duration-200 disabled:opacity-50"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
+              {loading ? (
+                <div className="w-6 h-6 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              )}
             </button>
           </div>
         </form>
 
         {/* Subtle hint */}
         <p className="text-sm text-gray-600 mt-6 font-light">
-          Try: AAPL, TSLA, MSFT, GOOGL, NVDA
+          Try: AAPL, TSLA, MSFT, GOOGL, NVDA, AMZN, META
         </p>
       </div>
     </div>
