@@ -1,4 +1,3 @@
-// /api/analyze/[ticker]/route.ts
 import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { z } from 'zod';
@@ -6,7 +5,33 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-/** ----- types still used by the UI ----- */
+// ----- validated output schema -------------------------------------------
+export const AnalysisSchema = z
+  .object({
+    summary: z.string(),
+    competitiveLandscape: z
+      .array(
+        z.object({
+          ticker: z.string().max(6),
+          blurb: z.string(),
+        })
+      )
+      .min(1),
+    catalysts: z.array(z.string()).min(1),
+    risks: z
+      .array(
+        z.object({
+          risk: z.string(),
+          severity: z.enum(['low', 'medium', 'high']),
+        })
+      )
+      .min(1),
+    recommendation: z.enum(['BUY', 'HOLD', 'SELL']),
+  })
+  .strict();
+
+type AnalysisResponse = z.infer<typeof AnalysisSchema>;
+
 interface CompanyData {
   name: string;
   ticker: string;
@@ -19,15 +44,6 @@ interface CompanyData {
   eps: string;
   dividendYield: string;
 }
-export type AnalysisResponse = z.infer<typeof AnalysisSchema>;
-
-/** ----- 1 · define structured‑output schema ----- */
-const AnalysisSchema = z.object({
-  strengths: z.array(z.string()),
-  risks: z.array(z.string()),
-  outlook: z.string(),
-  recommendation: z.enum(['BUY', 'HOLD', 'SELL']),
-});
 
 export async function POST(
   req: NextRequest,
@@ -38,9 +54,8 @@ export async function POST(
     const { ticker } = params;
     console.log(`Analyzing ${ticker} with OpenAI…`);
 
-    /** ----- 2 · compose prompt (unchanged) ----- */
-    const prompt = `
-You are a professional financial analyst. Analyze the following company as an investment opportunity.
+    // ------------- prompt -----------------------------------------------
+    const prompt = `You are a professional financial analyst. Analyze the following company as an investment opportunity.
 
 Company: ${company.name} (${company.ticker})
 Current Price: $${company.price}
@@ -51,34 +66,25 @@ EPS: ${company.eps}
 Revenue Growth (YoY): ${company.revenueGrowth}
 Dividend Yield: ${company.dividendYield}
 
-Return **only** JSON that matches the "analysis" schema we provided.
-`;
+Return ONLY a JSON object that matches the \"equity_analysis\" schema.`;
+    // --------------------------------------------------------------------
 
-    /** ----- 3 · call GPT‑4o with schema enforcement ----- */
     const completion = await openai.chat.completions.parse({
-      model: 'gpt-4.1',        // first model snapshot that supports schema
+      model: 'gpt-4.1', // supports structured outputs
       messages: [
         {
           role: 'system',
-          content:
-            'You are a professional financial analyst. Respond with valid JSON.',
+          content: 'You are a professional financial analyst. Respond with valid JSON.',
         },
         { role: 'user', content: prompt },
       ],
-      response_format: zodResponseFormat(AnalysisSchema, 'analysis'),
+      response_format: zodResponseFormat(AnalysisSchema, 'equity_analysis'),
       temperature: 0.7,
-      max_tokens: 500,
     });
 
     const msg = completion.choices[0].message;
-
-    // Handle edge cases (optional but recommended)
-    if ('refusal' in msg && msg.refusal) {
-      throw new Error('OpenAI refused to comply.');
-    }
-    if (!('parsed' in msg)) {
-      throw new Error('No parsed content from OpenAI.');
-    }
+    if ('refusal' in msg && msg.refusal) throw new Error('OpenAI refused');
+    if (!('parsed' in msg)) throw new Error('No parsed content');
 
     const analysis: AnalysisResponse = msg.parsed!;
     console.log(`Analysis complete for ${ticker}`);
