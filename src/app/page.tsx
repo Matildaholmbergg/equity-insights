@@ -1,70 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { formatMarketCap, formatPeRatio, formatRevenueGrowth, formatEps, formatDividendYield, format52WeekRange, getCompanyEmoji } from './utils';
+import { CompanyData, InvestmentAnalysis } from './types';
 
-// Helper function to format market cap from millions to readable format
-const formatMarketCap = (marketCapInMillions: number): string => {
-  if (marketCapInMillions >= 1000000) {
-    return `$${(marketCapInMillions / 1000000).toFixed(2)}T`;
-  } else if (marketCapInMillions >= 1000) {
-    return `$${(marketCapInMillions / 1000).toFixed(1)}B`;
-  } else {
-    return `$${marketCapInMillions.toFixed(0)}M`;
-  }
-};
-
-// Helper function to format 52-week range
-const format52WeekRange = (low?: number, high?: number): string => {
-  if (!low || !high) return "-";
-  return `$${low.toFixed(2)} - $${high.toFixed(2)}`;
-};
-
-// Helper function to format P/E ratio
-const formatPeRatio = (pe?: number): string => {
-  if (!pe || pe <= 0) return "-";
-  return `${pe.toFixed(1)}x`;
-};
-
-// Helper function to format dividend yield
-const formatDividendYield = (yieldValue?: number): string => {
-  if (!yieldValue || yieldValue <= 0) return "0.00%";
-  return `${yieldValue.toFixed(2)}%`;
-};
-
-// Helper function to format EPS
-const formatEps = (eps?: number): string => {
-  if (!eps) return "-";
-  return `$${eps.toFixed(2)}`;
-};
-
-// Helper function to format revenue growth
-const formatRevenueGrowth = (growth?: number): string => {
-  if (!growth && growth !== 0) return "-";
-  const sign = growth >= 0 ? "+" : "";
-  return `${sign}${growth.toFixed(1)}%`;
-};
-
-// Data structure for our UI
-interface CompanyData {
-  name: string;
-  ticker: string;
-  sector: string;
-  location: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  marketCap: string;
-  peRatio: string;
-  revenueGrowth: string;
-  eps: string;
-  fiftyTwoWeekLow: number;
-  fiftyTwoWeekHigh: number;
-  dividendYield: string;
-  logo?: string;
-}
-
-// Transform Finnhub response to our data structure
-  const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any, financialsData?: any): CompanyData | null => {
+const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any, financialsData?: any): CompanyData | null => {
     if (!finnhubResponse || !finnhubResponse.c) {
       return null;
     }
@@ -92,37 +32,22 @@ interface CompanyData {
   };
 };
 
-// Helper function to get company emoji
-const getCompanyEmoji = (ticker: string) => {
-  const emojis: { [key: string]: string } = {
-    'AAPL': '🍎',
-    'TSLA': '🚗',
-    'MSFT': '💻',
-    'GOOGL': '🔍',
-    'NVDA': '🖥️',
-    'AMZN': '📦',
-    'META': '👥'
-  };
-  return emojis[ticker] || '🏢';
-};
-
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [currentCompany, setCurrentCompany] = useState<CompanyData | null>(null);
+  const [analysis, setAnalysis] = useState<InvestmentAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
 
-      const fetchStockData = async (symbol: string) => {
+  const fetchStockData = async (symbol: string) => {
     try {
-      // Replace with your actual Finnhub API key
-      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_API_KEY_HERE';
+      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY
       const url = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`;
       
-      console.log('Fetching data from:', url);
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log('Finnhub response for', symbol, ':', data);
       return data;
     } catch (error) {
       console.error('Error fetching stock data:', error);
@@ -132,14 +57,12 @@ export default function Home() {
 
   const fetchCompanyProfile = async (symbol: string) => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_API_KEY_HERE';
+      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY
       const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`;
       
-      console.log('Fetching company profile from:', url);
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log('Finnhub profile response for', symbol, ':', data);
       return data;
     } catch (error) {
       console.error('Error fetching company profile:', error);
@@ -149,14 +72,12 @@ export default function Home() {
 
   const fetchBasicFinancials = async (symbol: string) => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY || 'YOUR_API_KEY_HERE';
+      const apiKey = process.env.NEXT_PUBLIC_FINNHUB_API_KEY
       const url = `https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${apiKey}`;
       
-      console.log('Fetching basic financials from:', url);
       const response = await fetch(url);
       const data = await response.json();
       
-      console.log('Finnhub financials response for', symbol, ':', data);
       return data;
     } catch (error) {
       console.error('Error fetching basic financials:', error);
@@ -164,23 +85,43 @@ export default function Home() {
     }
   };
 
-  const preloadImage = (src: string): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
-      img.src = src;
-    });
+  const fetchInvestmentAnalysis = async (companyData: CompanyData): Promise<InvestmentAnalysis | null> => {
+    try {
+      setAnalysisLoading(true);
+      console.log('Fetching investment analysis for', companyData.ticker);
+      
+      const response = await fetch(`/api/analyze/${companyData.ticker}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(companyData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Analysis API error: ${response.status}`);
+      }
+
+      const analysisData = await response.json();
+      console.log('Investment analysis received:', analysisData);
+      
+      return analysisData;
+    } catch (error) {
+      console.error('Error fetching investment analysis:', error);
+      return null;
+    } finally {
+      setAnalysisLoading(false);
+    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (searchTerm.trim()) {
       setLoading(true);
+      setAnalysis(null);
       const ticker = searchTerm.toUpperCase().trim();
       
-              try {
-          // Handle common company name aliases
+      try {
           let searchTicker = ticker;
           const aliases: { [key: string]: string } = {
             'APPLE': 'AAPL',
@@ -196,39 +137,25 @@ export default function Home() {
           
           searchTicker = aliases[ticker] || ticker;
 
-                  // Fetch real data from Finnhub in parallel
           const [finnhubData, profileData, financialsData] = await Promise.all([
             fetchStockData(searchTicker),
             fetchCompanyProfile(searchTicker),
             fetchBasicFinancials(searchTicker)
           ]);
           
-          // Transform data with all API responses
           const transformedData = transformFinnhubData(searchTicker, finnhubData, profileData, financialsData);
         
         if (transformedData) {
-          // Prepare parallel operations
-          const operations = [];
-          
-          // If there's a logo, preload it in parallel
-          if (transformedData.logo) {
-            console.log('Preloading logo in parallel:', transformedData.logo);
-            operations.push(
-              preloadImage(transformedData.logo).catch((error) => {
-                console.log('Logo failed to load, will remove it:', error);
-                transformedData.logo = undefined; // Remove logo if it fails to load
-              })
-            );
-          }
-          
-          // Wait for all operations (currently just logo preloading, but extensible)
-          if (operations.length > 0) {
-            await Promise.all(operations);
-          }
-          
-          console.log('All operations completed, showing results');
+          console.log('Showing results without image preloading');
           setCurrentCompany(transformedData);
           setShowResults(true);
+          
+          // Fetch investment analysis in the background (non-blocking)
+          fetchInvestmentAnalysis(transformedData).then((analysisResult) => {
+            if (analysisResult) {
+              setAnalysis(analysisResult);
+            }
+          });
         } else {
           alert(`Sorry, we couldn't fetch data for "${searchTerm}". Please check the ticker symbol and try again.`);
         }
@@ -244,6 +171,7 @@ export default function Home() {
   const handleNewSearch = () => {
     setShowResults(false);
     setCurrentCompany(null);
+    setAnalysis(null);
     setSearchTerm('');
   };
 
@@ -318,8 +246,7 @@ export default function Home() {
                   <div className="text-3xl font-light mb-1">
                     ${currentCompany.price}
                   </div>
-                  <div className={`text-sm font-light ${currentCompany.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    ${currentCompany.change >= 0 ? `+${currentCompany.change}` : currentCompany.change} {currentCompany.change >= 0 ? '↗' : '↘'} {currentCompany.changePercent >= 0 ? `+${currentCompany.changePercent}` : currentCompany.changePercent}%
+                  <div className={`text-sm font-light ${currentCompany.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>                    ${currentCompany.change >= 0 ? `+${currentCompany.change}` : currentCompany.change} {currentCompany.change >= 0 ? '↗' : '↘'} {currentCompany.changePercent >= 0 ? `+${currentCompany.changePercent}` : currentCompany.changePercent}%
                   </div>
                 </div>
             </div>
@@ -362,13 +289,76 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Placeholder for report sections */}
+          {/* Investment Analysis Section */}
           <div className="space-y-6">
             <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
-              <h2 className="text-xl font-light mb-4">📊 Executive Summary</h2>
-              <p className="text-gray-400 font-light">
-                Report sections coming soon...
-              </p>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-light">🤖 AI Investment Analysis</h2>
+                {analysisLoading && (
+                  <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin"></div>
+                    Analyzing...
+                  </div>
+                )}
+              </div>
+              
+              {analysis ? (
+                <div className="space-y-6">
+                  {/* Recommendation Banner */}
+                  <div className={`rounded-lg p-4 text-center ${
+                    analysis.recommendation === 'BUY' ? 'bg-green-900/30 border border-green-600' :
+                    analysis.recommendation === 'SELL' ? 'bg-red-900/30 border border-red-600' :
+                    'bg-yellow-900/30 border border-yellow-600'
+                  }`}>
+                    <div className="text-2xl font-light mb-1">
+                      Recommendation: <span className={`font-medium ${
+                        analysis.recommendation === 'BUY' ? 'text-green-400' :
+                        analysis.recommendation === 'SELL' ? 'text-red-400' :
+                        'text-yellow-400'
+                      }`}>{analysis.recommendation}</span>
+                    </div>
+                  </div>
+
+                  {/* Analysis Content */}
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Strengths */}
+                    <div>
+                      <h3 className="text-lg font-light text-green-400 mb-3">💪 Strengths</h3>
+                      <ul className="space-y-2">
+                        {analysis.strengths.map((strength, index) => (
+                          <li key={index} className="text-gray-300 text-sm leading-relaxed">
+                            • {strength}
+          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    {/* Risks */}
+                    <div>
+                      <h3 className="text-lg font-light text-red-400 mb-3">⚠️ Risks</h3>
+                      <ul className="space-y-2">
+                        {analysis.risks.map((risk, index) => (
+                          <li key={index} className="text-gray-300 text-sm leading-relaxed">
+                            • {risk}
+          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Outlook */}
+                  <div>
+                    <h3 className="text-lg font-light text-blue-400 mb-3">🔮 Outlook</h3>
+                    <p className="text-gray-300 text-sm leading-relaxed">
+                      {analysis.outlook}
+                    </p>
+                  </div>
+                </div>
+              ) : !analysisLoading ? (
+                <p className="text-gray-400 font-light text-center py-8">
+                  AI analysis will appear here after searching for a company...
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
@@ -376,7 +366,6 @@ export default function Home() {
     );
   }
 
-  // Landing page (original design)
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
       <div className="w-full max-w-2xl text-center">
