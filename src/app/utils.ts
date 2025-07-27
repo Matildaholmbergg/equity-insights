@@ -1,3 +1,5 @@
+import { CompanyData } from "./types";
+
 // Helper function to format market cap from millions to readable format
 export const formatMarketCap = (marketCapInMillions: number): string => {
     if (marketCapInMillions >= 1000000) {
@@ -52,3 +54,31 @@ export const formatMarketCap = (marketCapInMillions: number): string => {
     };
     return emojis[ticker] || '🏢';
   };
+
+  export const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any, financialsData?: any): CompanyData | null => {
+    if (!finnhubResponse || !finnhubResponse.c) {
+      return null;
+    }
+
+    const metrics = financialsData?.metric || {};
+
+    return {
+    name: profileData?.name || ticker, // Use real name from profile, fallback to ticker
+    ticker: ticker,
+    sector: "-", // Not available in free Finnhub plan
+    location: profileData?.country || "-", // Use country from profile
+    price: Number(finnhubResponse.c.toFixed(2)),
+    change: Number(finnhubResponse.d.toFixed(2)),
+    changePercent: Number(finnhubResponse.dp.toFixed(2)),
+    // Real 52-week range from financials (preferred) or day range (fallback)
+    fiftyTwoWeekLow: metrics['52WeekLow'] || Number(finnhubResponse.l.toFixed(2)),
+    fiftyTwoWeekHigh: metrics['52WeekHigh'] || Number(finnhubResponse.h.toFixed(2)),
+    // Real data from various Finnhub endpoints
+    marketCap: profileData?.marketCapitalization ? formatMarketCap(profileData.marketCapitalization) : "-",
+    peRatio: formatPeRatio(metrics.peNormalizedAnnual),
+    revenueGrowth: formatRevenueGrowth(metrics.revenueGrowthTTMYoy), // Real revenue growth YoY
+    eps: formatEps(metrics.epsTTM), // Using TTM (Trailing Twelve Months) EPS
+    dividendYield: formatDividendYield(metrics.currentDividendYieldTTM),
+    logo: profileData?.logo || undefined,
+  };
+};

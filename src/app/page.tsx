@@ -1,36 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { formatMarketCap, formatPeRatio, formatRevenueGrowth, formatEps, formatDividendYield, format52WeekRange, getCompanyEmoji } from './utils';
+import { formatMarketCap, formatPeRatio, formatRevenueGrowth, formatEps, formatDividendYield, format52WeekRange, getCompanyEmoji, transformFinnhubData } from './utils';
 import { CompanyData, InvestmentAnalysis } from './types';
-
-const transformFinnhubData = (ticker: string, finnhubResponse: any, profileData?: any, financialsData?: any): CompanyData | null => {
-    if (!finnhubResponse || !finnhubResponse.c) {
-      return null;
-    }
-
-    const metrics = financialsData?.metric || {};
-
-    return {
-    name: profileData?.name || ticker, // Use real name from profile, fallback to ticker
-    ticker: ticker,
-    sector: "-", // Not available in free Finnhub plan
-    location: profileData?.country || "-", // Use country from profile
-    price: Number(finnhubResponse.c.toFixed(2)),
-    change: Number(finnhubResponse.d.toFixed(2)),
-    changePercent: Number(finnhubResponse.dp.toFixed(2)),
-    // Real 52-week range from financials (preferred) or day range (fallback)
-    fiftyTwoWeekLow: metrics['52WeekLow'] || Number(finnhubResponse.l.toFixed(2)),
-    fiftyTwoWeekHigh: metrics['52WeekHigh'] || Number(finnhubResponse.h.toFixed(2)),
-    // Real data from various Finnhub endpoints
-    marketCap: profileData?.marketCapitalization ? formatMarketCap(profileData.marketCapitalization) : "-",
-    peRatio: formatPeRatio(metrics.peNormalizedAnnual),
-    revenueGrowth: formatRevenueGrowth(metrics.revenueGrowthTTMYoy), // Real revenue growth YoY
-    eps: formatEps(metrics.epsTTM), // Using TTM (Trailing Twelve Months) EPS
-    dividendYield: formatDividendYield(metrics.currentDividendYieldTTM),
-    logo: profileData?.logo || undefined,
-  };
-};
 
 export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -183,7 +155,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <button 
               onClick={handleNewSearch}
-              className="text-lg font-light tracking-tight hover:text-gray-400 transition-colors"
+              className="text-lg font-light tracking-tight hover:text-gray-400 transition-colors cursor-pointer"
             >
               EQUITY <span className="text-gray-400">INSIGHTS</span>
             </button>

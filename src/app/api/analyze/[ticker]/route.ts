@@ -35,7 +35,6 @@ export async function POST(
 
     console.log(`Analyzing ${ticker} with OpenAI...`);
 
-    // Create a structured prompt for investment analysis
     const prompt = `
 You are a professional financial analyst. Analyze the following company as an investment opportunity.
 
@@ -61,7 +60,7 @@ Base your analysis on the financial metrics provided and general knowledge about
 `;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
+      model: "gpt-4.1",
       messages: [
         {
           role: "system",
@@ -82,7 +81,6 @@ Base your analysis on the financial metrics provided and general knowledge about
       throw new Error('No response from OpenAI');
     }
 
-    // Parse the JSON response
     let analysis: AnalysisResponse;
     try {
       analysis = JSON.parse(analysisText);
