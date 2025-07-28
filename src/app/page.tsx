@@ -47,7 +47,6 @@ export default function Home() {
     ).slice(0, 8);
   }, [searchTerm]);
 
-  /* ---------- click outside dropdown ---------- */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (
@@ -63,7 +62,6 @@ export default function Home() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  /* ---------- Finnhub helpers ---------- */
   const fetchStockData = (symbol: string) =>
     fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${apiKey}`)
       .then((r) => r.json())
@@ -90,20 +88,18 @@ export default function Home() {
           });
       
           if (!res.ok) {
-            // Try to read the error details the server sends back
             let details = '';
             try {
               const payload = await res.json();
               details = payload?.message || payload?.error || '';
             } catch {
-              /* ignore JSON‑parse failures */
             }
             throw new Error(
               `Analysis API error ${res.status}${details ? ` – ${details}` : ''}`
             );
           }
       
-          return await res.json(); // successful case
+          return await res.json();
         } catch (err) {
           console.error('Error fetching investment analysis:', err);
           return null;
@@ -113,7 +109,6 @@ export default function Home() {
       };
       
 
-  /* ---------- core search ---------- */
   const performSearch = async (rawInput: string) => {
     const raw = rawInput.trim();
     if (!raw) return;
@@ -157,7 +152,6 @@ export default function Home() {
     setSearchTerm('');
   };
 
-  /* ---------- SearchInput component ---------- */
   const SearchInput = (
     <div className="relative w-full" key={showResults ? 'header' : 'landing'}>
       <input
@@ -209,7 +203,6 @@ export default function Home() {
     </div>
   );
 
-  /* ---------- quick-pick chips ---------- */
   const QUICK_PICKS = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'TSLA'];
   const QuickPickBar = (
     <div className="mt-4 flex flex-wrap justify-center gap-2">
@@ -226,7 +219,6 @@ export default function Home() {
   );
 
 
-  /* ---------- RESULTS VIEW ---------- */
   if (showResults && currentCompany) {
     return (
       <div className="min-h-screen bg-black text-white">
@@ -238,7 +230,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* company details */}
         <div className="max-w-6xl mx-auto px-6 py-8">
           {/* header block */}
           <div className="mb-8">
@@ -420,7 +411,7 @@ export default function Home() {
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
       <div className="w-full max-w-2xl text-center">
         <h1 className="text-5xl md:text-6xl font-light tracking-tight mb-5"><span className="text-white">EQUITY </span><span className="text-gray-400">INSIGHTS</span></h1>
-        <p className="text-lg text-gray-500 mb-5 font-light">Financial analysis for popular equities</p>
+        <p className="text-lg text-gray-500 mb-5 font-light">Financial analysis for S&P 500 companies</p>
         <form onSubmit={handleSubmit} className="w-full">{SearchInput}</form>
         {QuickPickBar}
         <p className="text-sm text-gray-600 mt-6 font-light">Click a suggestion, a quick pick, or press Enter to search</p>
@@ -429,7 +420,6 @@ export default function Home() {
   );
 }
 
-/* ---------- tiny helpers ---------- */
 function Metric({
   label,
   value,

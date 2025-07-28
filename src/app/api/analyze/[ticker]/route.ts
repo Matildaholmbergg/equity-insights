@@ -5,7 +5,6 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
 
-// ----- validated output schema -------------------------------------------
 export const AnalysisSchema = z
   .object({
     summary: z.string(),
@@ -54,7 +53,6 @@ export async function POST(
     const { ticker } = params;
     console.log(`Analyzing ${ticker} with OpenAI…`);
 
-    // ------------- prompt -----------------------------------------------
     const prompt = `You are a professional financial analyst. Analyze the following company as an investment opportunity.
 
 Company: ${company.name} (${company.ticker})
@@ -67,10 +65,9 @@ Revenue Growth (YoY): ${company.revenueGrowth}
 Dividend Yield: ${company.dividendYield}
 
 Return ONLY a JSON object that matches the \"equity_analysis\" schema.`;
-    // --------------------------------------------------------------------
 
     const completion = await openai.chat.completions.parse({
-      model: 'gpt-4.1', // supports structured outputs
+      model: 'gpt-4.1',
       messages: [
         {
           role: 'system',
