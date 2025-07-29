@@ -3,9 +3,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 import { zodResponseFormat } from 'openai/helpers/zod';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
-
-export const AnalysisSchema = z
+const AnalysisSchema = z
   .object({
     summary: z.string(),
     competitiveLandscape: z
@@ -46,18 +44,33 @@ interface CompanyData {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { ticker: string } }
+  { params }: { params: Promise<{ ticker: string }> }
 ) {
   try {
+    // Initialize OpenAI client inside the function to avoid build-time issues
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OPENAI_API_KEY environment variable is not set');
+      return Response.json(
+        { error: 'OpenAI API key not configured' },
+        { status: 500 }
+      );
+    }
+
     const company: CompanyData = await req.json();
-    const { ticker } = params;
+    const { ticker } = await params;
     console.log(`Analyzing ${ticker} with OpenAI…`);
 
     const prompt = `You are a professional financial analyst. Analyze the following company as an investment opportunity.
 
 Company: ${company.name} (${company.ticker})
 Current Price: $${company.price}
-Recent Change: ${company.change >= 0 ? '+' : ''}$${company.change} (${company.changePercent >= 0 ? '+' : ''}${company.changePercent}%)
+Recent Change: ${company.change >= 0 ? '+' : ''}$${company.change} (${
+      company.changePercent >= 0 ? '+' : ''
+    }${company.changePercent}%)
 Market Cap: ${company.marketCap}
 P/E Ratio: ${company.peRatio}
 EPS: ${company.eps}
@@ -71,7 +84,8 @@ Return ONLY a JSON object that matches the \"equity_analysis\" schema.`;
       messages: [
         {
           role: 'system',
-          content: 'You are a professional financial analyst. Respond with valid JSON.',
+          content:
+            'You are a professional financial analyst. Respond with valid JSON.',
         },
         { role: 'user', content: prompt },
       ],

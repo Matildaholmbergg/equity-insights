@@ -2,11 +2,6 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import {
-  formatMarketCap,
-  formatPeRatio,
-  formatRevenueGrowth,
-  formatEps,
-  formatDividendYield,
   format52WeekRange,
   getCompanyEmoji,
   transformFinnhubData,
@@ -26,7 +21,9 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [currentCompany, setCurrentCompany] = useState<CompanyData | null>(null);
+  const [currentCompany, setCurrentCompany] = useState<CompanyData | null>(
+    null
+  );
   const [analysis, setAnalysis] = useState<InvestmentAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -67,47 +64,49 @@ export default function Home() {
       .then((r) => r.json())
       .catch(() => null);
   const fetchCompanyProfile = (symbol: string) =>
-    fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`)
+    fetch(
+      `https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`
+    )
       .then((r) => r.json())
       .catch(() => null);
   const fetchBasicFinancials = (symbol: string) =>
-    fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${apiKey}`)
+    fetch(
+      `https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${apiKey}`
+    )
       .then((r) => r.json())
       .catch(() => null);
 
-      const fetchInvestmentAnalysis = async (
-        company: CompanyData
-      ): Promise<InvestmentAnalysis | null> => {
+  const fetchInvestmentAnalysis = async (
+    company: CompanyData
+  ): Promise<InvestmentAnalysis | null> => {
+    try {
+      setAnalysisLoading(true);
+
+      const res = await fetch(`/api/analyze/${company.ticker}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(company),
+      });
+
+      if (!res.ok) {
+        let details = '';
         try {
-          setAnalysisLoading(true);
-      
-          const res = await fetch(`/api/analyze/${company.ticker}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(company),
-          });
-      
-          if (!res.ok) {
-            let details = '';
-            try {
-              const payload = await res.json();
-              details = payload?.message || payload?.error || '';
-            } catch {
-            }
-            throw new Error(
-              `Analysis API error ${res.status}${details ? ` – ${details}` : ''}`
-            );
-          }
-      
-          return await res.json();
-        } catch (err) {
-          console.error('Error fetching investment analysis:', err);
-          return null;
-        } finally {
-          setAnalysisLoading(false);
-        }
-      };
-      
+          const payload = await res.json();
+          details = payload?.message || payload?.error || '';
+        } catch {}
+        throw new Error(
+          `Analysis API error ${res.status}${details ? ` – ${details}` : ''}`
+        );
+      }
+
+      return await res.json();
+    } catch (err) {
+      console.error('Error fetching investment analysis:', err);
+      return null;
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
 
   const performSearch = async (rawInput: string) => {
     const raw = rawInput.trim();
@@ -117,7 +116,9 @@ export default function Home() {
     setAnalysis(null);
 
     const entry =
-      POPULAR_SYMBOLS.find((s) => s.symbol.toUpperCase() === raw.toUpperCase()) ||
+      POPULAR_SYMBOLS.find(
+        (s) => s.symbol.toUpperCase() === raw.toUpperCase()
+      ) ||
       POPULAR_SYMBOLS.find((s) => s.name.toLowerCase() === raw.toLowerCase());
     const symbol = entry ? entry.symbol : raw.toUpperCase();
 
@@ -182,7 +183,9 @@ export default function Home() {
               className="px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 cursor-pointer flex justify-between"
             >
               <span>{s.symbol}</span>
-              <span className="text-gray-400 ml-4 truncate w-56 text-right">{s.name}</span>
+              <span className="text-gray-400 ml-4 truncate w-56 text-right">
+                {s.name}
+              </span>
             </div>
           ))}
         </div>
@@ -195,8 +198,18 @@ export default function Home() {
         {loading ? (
           <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
         ) : (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
         )}
       </button>
@@ -218,15 +231,21 @@ export default function Home() {
     </div>
   );
 
-
   if (showResults && currentCompany) {
     return (
       <div className="min-h-screen bg-black text-white">
         {/* header */}
         <div className="border-b border-gray-800 px-6 py-4">
           <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
-            <button onClick={handleNewSearch} className="text-lg font-light tracking-tight hover:text-gray-400">EQUITY <span className="text-gray-400">INSIGHTS</span></button>
-            <form onSubmit={handleSubmit} className="flex-1 max-w-md">{SearchInput}</form>
+            <button
+              onClick={handleNewSearch}
+              className="text-lg font-light tracking-tight hover:text-gray-400"
+            >
+              EQUITY <span className="text-gray-400">INSIGHTS</span>
+            </button>
+            <form onSubmit={handleSubmit} className="flex-1 max-w-md">
+              {SearchInput}
+            </form>
           </div>
         </div>
 
@@ -266,8 +285,8 @@ export default function Home() {
                       : 'text-red-400'
                   }`}
                 >
-                  {currentCompany.change >= 0 ? '+' : ''}
-                  ${currentCompany.change}{' '}
+                  {currentCompany.change >= 0 ? '+' : ''}$
+                  {currentCompany.change}{' '}
                   {currentCompany.change >= 0 ? '↗' : '↘'}{' '}
                   {currentCompany.changePercent >= 0 ? '+' : ''}
                   {currentCompany.changePercent}%
@@ -305,7 +324,9 @@ export default function Home() {
           <div className="space-y-6">
             <div className="bg-gray-900 rounded-lg p-6 border border-gray-800">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-light">🤖 AI Investment Analysis</h2>
+                <h2 className="text-xl font-light">
+                  🤖 AI Investment Analysis
+                </h2>
                 {analysisLoading && (
                   <div className="flex items-center gap-2 text-gray-400 text-sm">
                     <div className="w-4 h-4 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
@@ -410,11 +431,20 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
       <div className="w-full max-w-2xl text-center">
-        <h1 className="text-5xl md:text-6xl font-light tracking-tight mb-5"><span className="text-white">EQUITY </span><span className="text-gray-400">INSIGHTS</span></h1>
-        <p className="text-lg text-gray-500 mb-5 font-light">Financial analysis for S&P 500 companies</p>
-        <form onSubmit={handleSubmit} className="w-full">{SearchInput}</form>
+        <h1 className="text-5xl md:text-6xl font-light tracking-tight mb-5">
+          <span className="text-white">EQUITY </span>
+          <span className="text-gray-400">INSIGHTS</span>
+        </h1>
+        <p className="text-lg text-gray-500 mb-5 font-light">
+          Financial analysis for S&P 500 companies
+        </p>
+        <form onSubmit={handleSubmit} className="w-full">
+          {SearchInput}
+        </form>
         {QuickPickBar}
-        <p className="text-sm text-gray-600 mt-6 font-light">Click a suggestion, a quick pick, or press Enter to search</p>
+        <p className="text-sm text-gray-600 mt-6 font-light">
+          Click a suggestion, a quick pick, or press Enter to search
+        </p>
       </div>
     </div>
   );
